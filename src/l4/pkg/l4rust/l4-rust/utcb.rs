@@ -257,11 +257,13 @@ impl<U: UtcbRegSize> Registers<U> {
     #[inline]
     pub unsafe fn write<T: Serialisable>(&mut self, val: T) 
             -> Result<()> {
-        let ptr = align::<T>(self.buf);
-        let next = ptr.add(size_of::<T>());
+        let ptr = unsafe { align::<T>(self.buf) };
+        let next = unsafe { ptr.add(size_of::<T>()) };
         l4_err_if!((next as usize - self.base as usize) > U::BUF_SIZE
                    => Generic, MsgTooLong);
-        *(ptr as *mut T) = val;
+        unsafe {
+            *(ptr as *mut T) = val;
+        }
         self.buf = next;
         Ok(())
     }
@@ -276,12 +278,12 @@ impl<U: UtcbRegSize> Registers<U> {
     /// and that the memory region behind  has the length of
     /// `UTCB_DATA_SIZE_IN_BYTES`.
     #[inline]
-    pub unsafe fn read<T: Serialisable>(&mut self)  -> Result<T> {
-        let ptr = align::<T>(self.buf);
-        let next = ptr.add(size_of::<T>());
+    pub fn read<T: Serialisable>(&mut self)  -> Result<T> {
+        let ptr = unsafe { align::<T>(self.buf) };
+        let next = unsafe { ptr.add(size_of::<T>()) };
         l4_err_if!((next as usize - self.base as usize) > U::BUF_SIZE
                    => Generic, MsgTooLong);
-        let val: T = (*(ptr as *mut T)).clone();
+        let val: T = unsafe { (*(ptr as *mut T)).clone() };
         self.buf = next;
         Ok(val)
     }
@@ -291,12 +293,14 @@ impl<U: UtcbRegSize> Registers<U> {
             where Len: Serialisable + NumCast, T: Serialisable {
         self.write::<Len>(NumCast::from(val.len())
                 .ok_or(Error::Generic(GenericErr::InvalidArg))?)?;
-        let ptr = align::<T>(self.buf);
-        let end = ptr.add(size_of::<T>() * val.len());
+        let ptr = unsafe { align::<T>(self.buf) };
+        let end = unsafe { ptr.add(size_of::<T>() * val.len()) };
         l4_err_if!(end as usize - self.base as usize > U::BUF_SIZE
                    => Generic, MsgTooLong);
-        val.as_ptr().copy_to_nonoverlapping(ptr as *mut T,
+        unsafe {
+            val.as_ptr().copy_to_nonoverlapping(ptr as *mut T,
                                        val.len());
+        }
         self.buf = end; // move pointer
         Ok(())
     }
@@ -305,11 +309,13 @@ impl<U: UtcbRegSize> Registers<U> {
     pub unsafe fn write_str(&mut self, val: &str) -> Result<()> {
         self.write::<usize>(val.len() + 1)?;
 
-        let ptr = align::<u8>(self.buf);
-        let end = ptr.add(size_of::<u8>() * val.len());
+        let ptr = unsafe { align::<u8>(self.buf) };
+        let end = unsafe { ptr.add(size_of::<u8>() * val.len()) };
         l4_err_if!(end as usize - self.base as usize > U::BUF_SIZE
                    => Generic, MsgTooLong);
-        val.as_ptr().copy_to_nonoverlapping(ptr, val.len());
+        unsafe {
+            val.as_ptr().copy_to_nonoverlapping(ptr, val.len());
+        }
         self.buf = end; // advance pointer behind last element
         self.write::<u8>(0u8)
     }

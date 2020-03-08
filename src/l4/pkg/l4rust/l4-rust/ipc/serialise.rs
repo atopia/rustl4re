@@ -152,7 +152,7 @@ unsafe impl Serialiser for std::string::String {
 
     #[inline]
     unsafe fn write(self, mr: &mut UtcbMr) -> Result<()> {
-        mr.write_str(&self)
+        mr.write_str(self.as_str())
     }
 }
 
